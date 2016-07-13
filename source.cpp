@@ -29,8 +29,15 @@
 
 
 #ifdef __linux__
-    #define     TEMP_PATH   "/tmp/CSRP"
-    #define     mkdir(x)    system("mkdir " x)
+    #define     TEMP_PATH       "/tmp/CSRP"
+    #define     mkdir(x)        system("mkdir " x)
+    #define     ROOT_DIRECTORY  "/"
+    #define     MUSIC_FILE      "/tmp/CSRP/1.mp3"
+#else
+    #define     TEMP_PATH       "C:/Windows/Temp/CSRP"
+    #define     mkdir(x)        system("md " x)
+    #define     ROOT_DIRECTORY  "G:/"
+    #define     MUSIC_FILE      "C:/Windows/Temp/CSRP/1.mp3"
 #endif
 
 using namespace std;
@@ -79,17 +86,17 @@ else
         gContext = SDL_GL_CreateContext( main_Win.returnWindowPointer() );
         if( gContext == NULL )
         {
-            printf( "OpenGL context could not be created! SDL Error: %s\n", SDL_GetError() );
+            cout<<"OpenGL context could not be created! SDL Error: %s\n"<<SDL_GetError()<<endl;
             return false;
         }
         else
         {
             if( SDL_GL_SetSwapInterval( 1 ) < 0 )
-                printf( "Warning: Unable to set VSync! SDL Error: %s\n", SDL_GetError() );
+                cout<<"Warning: Unable to set VSync! SDL Error: %s\n"<<SDL_GetError()<<endl;
 
             if( TTF_Init() == -1 )
             {
-                printf( "SDL_ttf could not initialize! SDL_ttf Error: %s\n", TTF_GetError() );
+                cout<<"SDL_ttf could not initialize! SDL_ttf Error: %s\n"<<TTF_GetError()<<endl;
                 return false;
             }
             else
@@ -97,7 +104,7 @@ else
                 gFont = TTF_OpenFont( "Font.ttf", 14 );
                 if( gFont == NULL )
                 {
-                    printf( "Failed to load font! SDL_ttf Error: %s\n", TTF_GetError() );
+                    cout<<"Failed to load font! SDL_ttf Error: %s\n"<<TTF_GetError()<<endl;
                     return false;
                 }
             }
@@ -156,8 +163,18 @@ void get_Song(std::string *strPoint)
     @description:
 */
 
+DIR *directory;
+dirent *entries;
+int i;
+directory=opendir(ROOT_DIRECTORY);
+string current_DIR(ROOT_DIRECTORY);
+string text("HELLO!!!");
 SDL2Window inWin;
-inWin.init(640,64,"CSRP Media Player-Enter Song",670,320);
+inWin.init(640,480,"CSRP Media Player-Enter Song",670,150);
+int windowID = SDL_GetWindowID( inWin.returnWindowPointer() );
+SDL_HideWindow(inWin.returnWindowPointer());
+SDL_ShowWindow(inWin.returnWindowPointer());
+SDL_RaiseWindow(inWin.returnWindowPointer());
 inWin.focus();
 SDL_Color textColor = { 0, 0, 0, 0xFF };
 gRenderer=inWin.returnRenderer();
@@ -165,14 +182,14 @@ SDL2Texture gInputTextTexture(gRenderer, gFont);
 
 SDL_StartTextInput();
 
-std::string FileName("/");
-
-gInputTextTexture.loadFromRenderedText( FileName.c_str(), textColor );
-SDL_SetRenderDrawColor( gRenderer, 0xFF, 0xFF, 0xFF, 0xFF );
-SDL_RenderClear( gRenderer );
-gInputTextTexture.render( ( 640 - gInputTextTexture.getWidth() ) / 2, 10 );
-SDL_RenderPresent( gRenderer );
-inWin.focus();
+START:
+i=0;
+string dirEntries[100];
+while ((entries=readdir(directory))!=NULL)
+{
+    dirEntries[i]=entries->d_name;
+    i++;
+}
 
 SDL_Event e;
 bool quit=false;
@@ -182,12 +199,27 @@ while (quit==false)
 {
     while( SDL_PollEvent( &e ) != 0 )
     {
+
+        if (e.window.windowID == windowID)
+        {
+        switch (e.window.event)
+        {
+        case SDL_WINDOWEVENT_SHOWN:
+        case SDL_WINDOWEVENT_HIDDEN:
+        case SDL_WINDOWEVENT_MINIMIZED:
+        case SDL_WINDOWEVENT_MAXIMIZED:
+        case SDL_WINDOWEVENT_RESTORED:
+            requireRender = true;
+            break;
+        }
+        }
+
         if( e.type == SDL_QUIT )
             exit(0);
 
         if( e.type == SDL_TEXTINPUT )
         {
-        FileName+=e.text.text;
+        text+=e.text.text;
         requireRender=true;
         }
 
@@ -197,17 +229,59 @@ while (quit==false)
         {
         case SDLK_v:
             if (SDL_GetModState() & KMOD_CTRL)
-                FileName += SDL_GetClipboardText();
+                text += SDL_GetClipboardText();
             requireRender = true;
             break;
 
         case SDLK_RETURN:
-            quit=true;
+            if ((text.find(".mp3")+1))
+            {
+                quit=true;
+                break;
+            }
+            for (int z=0;z<=i;z++)
+            {
+                if (text==dirEntries[z])
+                {
+                    current_DIR+=dirEntries[z];
+                    directory=opendir(current_DIR.c_str());
+                    current_DIR+="/";
+                    text="";
+                    goto START;
+                }
+            }
+            if (!(text.find(".mp3")+1))
+            {
+                SDL2Window alertBox;
+                alertBox.init(320,32,"CSRP Media Player---Alert",SDL_WINDOWPOS_UNDEFINED,SDL_WINDOWPOS_UNDEFINED);
+                SDL_HideWindow(alertBox.returnWindowPointer());
+                SDL_ShowWindow(alertBox.returnWindowPointer());
+                SDL_RaiseWindow(alertBox.returnWindowPointer());
+                SDL_SetRenderDrawColor( alertBox.returnRenderer(), 0xFF, 0xFF, 0xFF, 0xFF );
+                SDL_RenderClear( alertBox.returnRenderer() );
+                SDL2Texture textToRender(alertBox.returnRenderer(), gFont);
+
+                textToRender.loadFromRenderedText( "NOT", textColor, 10 );
+                textToRender.render( ( 320 - textToRender.getWidth() ) / 15, 0 );
+                textToRender.loadFromRenderedText( "AN", textColor, 10 );
+                textToRender.render( 2*( 320 - textToRender.getWidth() ) / 10, 0 );
+                textToRender.loadFromRenderedText( "ACCEPTABLE", textColor, 10 );
+                textToRender.render( 4.3*( 320 - textToRender.getWidth() ) / 10, 0 );
+                textToRender.loadFromRenderedText( "FILE", textColor, 10 );
+                textToRender.render( 7.3*( 320 - textToRender.getWidth() ) / 10, 0 );
+                textToRender.loadFromRenderedText( "NAME", textColor, 10 );
+                textToRender.render( 9.3*( 320 - textToRender.getWidth() ) / 10, 0 );
+
+                SDL_RenderPresent( alertBox.returnRenderer() );
+                SDL_Delay(2500);
+                alertBox.free();
+                break;
+            }
             break;
 
         case SDLK_BACKSPACE:
-            if (FileName.length() > 0)
-                FileName.pop_back();
+            if (text.length() > 0)
+                text.pop_back();
             requireRender=true;
             break;
 
@@ -221,30 +295,37 @@ while (quit==false)
     }
 
 
-    if (requireRender && FileName.length()!=0)
+    if (requireRender)
     {
-        gInputTextTexture.loadFromRenderedText( FileName.c_str(), textColor );
-
         SDL_SetRenderDrawColor( gRenderer, 0xFF, 0xFF, 0xFF, 0xFF );
         SDL_RenderClear( gRenderer );
 
-        gInputTextTexture.render( ( 640 - gInputTextTexture.getWidth() ) / 2, 10 );
+        int j=0,k=0;
+        while (j<i)
+        {
+            string text=dirEntries[j];
+            gInputTextTexture.loadFromRenderedText( text, textColor, 10 );
+
+            j++;
+
+            if (j%3==1)
+                gInputTextTexture.render( ( 320 - gInputTextTexture.getWidth() ) / 2, k*25 );
+            else if (j%3==2)
+                gInputTextTexture.render( ( 640 - gInputTextTexture.getWidth() ) / 2, k*25 );
+            else
+            {
+                gInputTextTexture.render( ( 960 - gInputTextTexture.getWidth() ) / 2, k*25 );
+                k++;
+            }
+        }
+
+        if (text.length()!=0)
+        {
+            gInputTextTexture.loadFromRenderedText( text, textColor, 10 );
+            gInputTextTexture.render( ( 640 - gInputTextTexture.getWidth() ) / 2, 445 );
+        }
 
         SDL_RenderPresent( gRenderer );
-
-        requireRender=false;
-    }
-    else if (requireRender && FileName.length()==0)
-    {
-        gInputTextTexture.loadFromRenderedText( " ", textColor );
-
-        SDL_SetRenderDrawColor( gRenderer, 0xFF, 0xFF, 0xFF, 0xFF );
-        SDL_RenderClear( gRenderer );
-
-        gInputTextTexture.render( ( 640 - gInputTextTexture.getWidth() ) / 2, 10 );
-
-        SDL_RenderPresent( gRenderer );
-
         requireRender=false;
     }
 }
@@ -252,7 +333,8 @@ while (quit==false)
 SDL_StopTextInput();
 
 inWin.free();
-*strPoint=FileName;
+closedir(directory);
+*strPoint=current_DIR+text;
 }
 
 
@@ -272,13 +354,17 @@ system("rm /tmp/CSRP/1.mp3");
 std::string cP;
 get_Song(&cP);
 
+#ifdef __linux
 char newc[120]="cp ";
+#elif __Windows
+char newc[120]="copy ";
+#endif
 strcat(newc,cP.c_str());
-strcat(newc," /tmp/CSRP/1.mp3");
+strcat(newc," " TEMP_PATH "/1.mp3");
 
 system(newc);
 
-try {play_Music("/tmp/CSRP/1.mp3");}
+try {play_Music(MUSIC_FILE);}
 catch (const char * ERROR_DESCRIPTION)
 {
     cout<<ERROR_DESCRIPTION<<endl;
@@ -289,7 +375,7 @@ catch (const char * ERROR_DESCRIPTION)
 
 
 
-void controls_Win_Callback()
+void controls_Win_Graphics_Callback()
 {
 /*
     @breif:
@@ -298,20 +384,61 @@ void controls_Win_Callback()
 
 glClear(GL_COLOR_BUFFER_BIT);
 
-glColor3f(1.0,1.0,1.0);
+glColor3f(0.0,0.0,0.0);
 
+if (Mix_PlayingMusic()==0)
+{
 glBegin(GL_TRIANGLES);
-    glVertex2f(-0.5,0.5);
-    glVertex2f(-0.5,-0.5);
-    glVertex2f(-0.3,0.0);
+    glVertex2f(-0.75,0.5);
+    glVertex2f(-0.75,-0.5);
+    glVertex2f(-0.65,0.0);
 glEnd();
+}
+else
+{
+glBegin(GL_POLYGON);
+    glVertex2f(-0.85,-0.5);
+    glVertex2f(-0.85,0.5);
+    glVertex2f(-0.8,0.5);
+    glVertex2f(-0.8,-0.5);
+glEnd();
+
+glBegin(GL_POLYGON);
+    glVertex2f(-0.75,-0.5);
+    glVertex2f(-0.75,0.5);
+    glVertex2f(-0.7,0.5);
+    glVertex2f(-0.7,-0.5);
+glEnd();
+}
 
 SDL_GL_SwapWindow( controls_Win.returnWindowPointer() );
 }
 
 
+
+
+void controls_Win_Event_Callback(SDL_Event &e)
+{
+if( e.type == SDL_MOUSEBUTTONDOWN )
+{
+    int x, y;
+    SDL_GetMouseState( &x, &y );
+
+    if (x<150)
+    {
+        if (Mix_PausedMusic()!=0)
+            Mix_ResumeMusic();
+        else
+            Mix_PauseMusic();
+    }
+}
+}
+
+
+
+
 //Start here
-int main()
+int main(int argc, char* argv[])
 {
 DIR *tmpD;
 ifstream tmp_1("/tmp/CSRP/1.mp3");
@@ -326,10 +453,13 @@ closedir(tmpD);
 if (!initialize())
     abort();
 
+atexit(SDL_Quit);
+atexit(TTF_Quit);
 
 controls_Win.init(640,64,"CSRP Media Player",670,10);
 
-controls_Win.registerCallback(controls_Win_Callback, GRAPHICS_RENDERER);
+controls_Win.registerCallback(controls_Win_Graphics_Callback, GRAPHICS_RENDERER);
+controls_Win.registerCallback(controls_Win_Event_Callback, EVENT_HANDLER);
 controls_Win.render();
 
 //Set up initial display
@@ -340,20 +470,23 @@ else
 {
     SDL_BlitSurface( startPageSurface, NULL, screenSurface, NULL );
     SDL_UpdateWindowSurface( main_Win.returnWindowPointer() );
-    SDL_Delay( 2000 );
 }
 
 SONG_SELECT:
 std::string cP;
 get_Song(&cP);
 
+#ifdef __linux
 char newc[120]="cp ";
+#elif __Windows
+char newc[120]="copy ";
+#endif
 strcat(newc,cP.c_str());
-strcat(newc," /tmp/CSRP/1.mp3");
+strcat(newc," " TEMP_PATH "/1.mp3");
 
 system(newc);
 
-try {play_Music("/tmp/CSRP/1.mp3");}
+try {play_Music(MUSIC_FILE);}
 catch (const char * ERROR_DESCRIPTION)
 {
     cout<<ERROR_DESCRIPTION<<endl;
@@ -383,6 +516,7 @@ while(true)
             exit(0);
 
         controls_Win.handleEvent(e);
+        controls_Win.render();
 
         if( e.type == SDL_KEYDOWN )
         {
@@ -419,7 +553,7 @@ while(true)
                 gMusic=NULL;
             }
             else
-                play_Music("/tmp/CSRP/1.mp3");
+                play_Music(MUSIC_FILE);
             break;
 
         case SDLK_ESCAPE:

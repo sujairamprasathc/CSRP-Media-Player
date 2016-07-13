@@ -21,7 +21,7 @@ class SDL2Texture
 		
 		#ifdef _SDL_TTF_H
 		//Creates image from font string
-		bool loadFromRenderedText( std::string textureText, SDL_Color textColor );
+		bool loadFromRenderedText( std::string textureText, SDL_Color textColor, int wrapLength );
 		#endif
 
 		//Deallocates texture
@@ -131,13 +131,13 @@ bool SDL2Texture::loadFromFile( std::string path )
 }
 
 #ifdef _SDL_TTF_H
-bool SDL2Texture::loadFromRenderedText( std::string textureText, SDL_Color textColor )
+bool SDL2Texture::loadFromRenderedText( std::string textureText, SDL_Color textColor, int wrapLength )
 {
 	//Get rid of preexisting texture
 	free();
 
 	//Render text surface
-	SDL_Surface* textSurface = TTF_RenderText_Solid( gFont, textureText.c_str(), textColor );
+	SDL_Surface* textSurface = TTF_RenderText_Blended_Wrapped( gFont, textureText.c_str(), textColor, wrapLength );
 	if( textSurface != NULL )
 	{
 		//Create texture from surface pixels
